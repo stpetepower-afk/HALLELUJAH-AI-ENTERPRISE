@@ -1,0 +1,14 @@
+# .gitignore
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# API Keys & Secrets
+*.key
+*.secret
+
+# Node
+node_modules/
+dist/
+
