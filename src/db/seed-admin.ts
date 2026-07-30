@@ -2,6 +2,7 @@
 // One-time bootstrap for the first admin account — run directly against the
 // database, never through the public API (which always creates "consumer" users).
 // Usage: npm run seed:admin -- --email=you@example.com --password=...
+import "../config/env";
 import { registerUser, AuthError } from "../auth/service";
 import { getPool } from "./pool";
 import { log } from "../utils/logger";

@@ -1,5 +1,6 @@
 // src/db/migrate.ts
 // Applies every .sql file in src/db/schema, in filename order. Run with: npm run migrate
+import "../config/env";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

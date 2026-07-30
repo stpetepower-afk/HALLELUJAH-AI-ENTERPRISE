@@ -1,9 +1,7 @@
 // src/config/llm-client.ts
 // LLM Client Configuration (NVIDIA NIM + OpenAI fallback)
 
-import dotenv from "dotenv";
-dotenv.config();
-
+import "./env";
 import OpenAI from "openai";
 import { requireSecret } from "../utils/secrets-manager";
 import { log } from "../utils/logger";

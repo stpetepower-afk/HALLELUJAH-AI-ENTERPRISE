@@ -1,4 +1,5 @@
 // src/server.ts
+import "./config/env";
 import express from "express";
 import { authRouter } from "./auth/routes";
 import { caseRouter } from "./cases/routes";
