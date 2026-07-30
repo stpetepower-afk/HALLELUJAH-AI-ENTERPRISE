@@ -1,11 +1,15 @@
 // src/server.ts
 import "./config/env";
 import express from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { authRouter } from "./auth/routes";
 import { caseRouter } from "./cases/routes";
 import { complete } from "./config/llm-client";
 import { getPool } from "./db/pool";
 import { log } from "./utils/logger";
+
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 
 async function checkDatabase(): Promise<"connected" | "error" | "not_configured"> {
   if (!process.env.DATABASE_URL) return "not_configured";
@@ -26,6 +30,7 @@ app.use(express.json());
 
 app.use("/auth", authRouter);
 app.use("/cases", caseRouter);
+app.use(express.static(publicDir));
 
 app.post("/llm/complete", async (req, res) => {
   const { messages } = req.body ?? {};

@@ -40,6 +40,24 @@ export async function loginUser(email: string, password: string) {
   return { user, token: signToken({ sub: user.id, role: user.role }) };
 }
 
+export async function getUserById(id: string): Promise<User | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    "SELECT id, email, role, created_at FROM users WHERE id = $1",
+    [id]
+  );
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    "SELECT id, email, role, created_at FROM users WHERE email = $1",
+    [email]
+  );
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
+
 // Admin-only: role changes never happen through self-service registration.
 export async function updateUserRole(id: string, role: Role): Promise<User | null> {
   if (!VALID_ROLES.includes(role)) throw new AuthError("Invalid role");

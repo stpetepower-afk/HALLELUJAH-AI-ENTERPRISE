@@ -14,4 +14,6 @@ export interface Case {
   readinessCurrentScore: number | null;
   openedAt: string;
   completedAt: string | null;
+  // Only populated by read queries that join users — not a stored column.
+  participantEmail?: string;
 }

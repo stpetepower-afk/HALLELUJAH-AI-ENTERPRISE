@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HEOS Coach Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0; background: #f6f5f2; color: #1f2421;
+  }
+  header {
+    background: #1f2421; color: #fff; padding: 0.75rem 1.25rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 1rem; margin: 0; font-weight: 600; }
+  header .who { font-size: 0.85rem; opacity: 0.85; }
+  header button { background: none; border: 1px solid #666; color: #fff; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; }
+  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+  input, select, textarea, button.primary {
+    width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem;
+  }
+  textarea { min-height: 4rem; font-family: inherit; }
+  button.primary {
+    margin-top: 1rem; background: #2c5f4f; color: #fff; border: none; cursor: pointer; font-weight: 600;
+  }
+  button.primary:hover { background: #234b3f; }
+  button.link { background: none; border: none; color: #2c5f4f; cursor: pointer; padding: 0; font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  th { font-size: 0.75rem; text-transform: uppercase; color: #666; }
+  tr:hover { background: #fafafa; cursor: pointer; }
+  .error { color: #b3261e; font-size: 0.85rem; margin-top: 0.5rem; }
+  .muted { color: #777; font-size: 0.85rem; }
+  .row { display: flex; gap: 1rem; }
+  .row > * { flex: 1; }
+  .hidden { display: none; }
+  .status-active { color: #2c5f4f; font-weight: 600; }
+  .status-closed { color: #999; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HEOS Coach Console</h1>
+  <div id="whoBox" class="hidden">
+    <span class="who" id="whoText"></span>
+    <button id="logoutBtn">Log out</button>
+  </div>
+</header>
+
+<main>
+  <section id="loginView" class="card">
+    <h2>Log in</h2>
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" autocomplete="username" />
+    <label for="loginPassword">Password</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" />
+    <button class="primary" id="loginBtn">Log in</button>
+    <div class="error hidden" id="loginError"></div>
+  </section>
+
+  <section id="consoleView" class="hidden">
+    <div class="card" id="casesCard">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Cases</h2>
+        <button class="link" id="showIntakeBtn">+ Enroll new participant</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Participant</th><th>Status</th><th>Priority</th><th>Stage</th><th>Readiness</th><th>Opened</th></tr>
+        </thead>
+        <tbody id="caseRows"></tbody>
+      </table>
+      <p class="muted" id="caseListEmpty">No cases yet.</p>
+    </div>
+
+    <section id="intakeCard" class="card hidden">
+      <h2>Enroll new participant</h2>
+      <p class="muted">If they already have an account, just enter their email. If not, set a temporary password for them too.</p>
+      <label for="intakeEmail">Participant email</label>
+      <input id="intakeEmail" type="email" />
+      <label for="intakePassword">Temporary password (only if new)</label>
+      <input id="intakePassword" type="text" placeholder="Leave blank if they already have an account" />
+      <div class="row">
+        <div>
+          <label for="intakePriority">Priority</label>
+          <select id="intakePriority">
+            <option value="">—</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div>
+          <label for="intakeStage">Current stage</label>
+          <input id="intakeStage" type="text" placeholder="e.g. enrolled" />
+        </div>
+        <div>
+          <label for="intakeScore">Readiness start score</label>
+          <input id="intakeScore" type="number" />
+        </div>
+      </div>
+      <button class="primary" id="intakeSubmitBtn">Create case</button>
+      <div class="error hidden" id="intakeError"></div>
+    </section>
+
+    <section id="detailCard" class="card hidden">
+      <button class="link" id="backToListBtn">&larr; Back to cases</button>
+      <h2 id="detailTitle"></h2>
+      <div class="row">
+        <div>
+          <label for="detailPriority">Priority</label>
+          <select id="detailPriority">
+            <option value="">—</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div>
+          <label for="detailStage">Current stage</label>
+          <input id="detailStage" type="text" />
+        </div>
+        <div>
+          <label for="detailScore">Readiness score (current)</label>
+          <input id="detailScore" type="number" />
+        </div>
+      </div>
+      <label for="detailAction">Next best action</label>
+      <textarea id="detailAction"></textarea>
+      <button class="primary" id="detailSaveBtn">Save changes</button>
+      <button class="link" id="detailCloseBtn" style="margin-top:0.75rem; color:#b3261e;">Close this case</button>
+      <div class="error hidden" id="detailError"></div>
+    </section>
+  </section>
+</main>
+
+<script>
+(function () {
+  var token = sessionStorage.getItem("heos_token") || null;
+  var currentCaseId = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var show = function (el) { el.classList.remove("hidden"); };
+  var hide = function (el) { el.classList.add("hidden"); };
+
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+    if (token) headers.Authorization = "Bearer " + token;
+    return fetch(path, { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.error || "Request failed");
+          return data;
+        });
+      });
+  }
+
+  function showLogin() {
+    hide($("consoleView"));
+    hide($("whoBox"));
+    show($("loginView"));
+  }
+
+  function showConsole(user) {
+    hide($("loginView"));
+    show($("consoleView"));
+    show($("whoBox"));
+    $("whoText").textContent = user.email + " (" + user.role + ")";
+    loadCases();
+  }
+
+  function loadCases() {
+    hide($("detailCard"));
+    hide($("intakeCard"));
+    show($("consoleView"));
+    show($("casesCard"));
+    api("/cases").then(function (data) {
+      var rows = data.cases || [];
+      var tbody = $("caseRows");
+      tbody.innerHTML = "";
+      $("caseListEmpty").classList.toggle("hidden", rows.length > 0);
+      rows.forEach(function (c) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + (c.participantEmail || c.userId) + "</td>" +
+          '<td class="status-' + c.status + '">' + c.status + "</td>" +
+          "<td>" + (c.priority || "—") + "</td>" +
+          "<td>" + (c.currentStage || "—") + "</td>" +
+          "<td>" + (c.readinessCurrentScore ?? "—") + "</td>" +
+          "<td>" + new Date(c.openedAt).toLocaleDateString() + "</td>";
+        tr.addEventListener("click", function () { openCase(c.id); });
+        tbody.appendChild(tr);
+      });
+    }).catch(function (err) {
+      alert("Failed to load cases: " + err.message);
+    });
+  }
+
+  function openCase(id) {
+    api("/cases/" + id).then(function (data) {
+      var c = data.case;
+      currentCaseId = c.id;
+      $("detailTitle").textContent = c.participantEmail || c.userId;
+      $("detailPriority").value = c.priority || "";
+      $("detailStage").value = c.currentStage || "";
+      $("detailScore").value = c.readinessCurrentScore ?? "";
+      $("detailAction").value = c.nextBestAction || "";
+      hide($("detailError"));
+      show($("detailCard"));
+      hide($("casesCard"));
+    }).catch(function (err) {
+      alert("Failed to load case: " + err.message);
+    });
+  }
+
+  $("loginBtn").addEventListener("click", function () {
+    hide($("loginError"));
+    api("/auth/login", { method: "POST", body: { email: $("loginEmail").value, password: $("loginPassword").value } })
+      .then(function (data) {
+        token = data.token;
+        sessionStorage.setItem("heos_token", token);
+        if (data.user.role !== "coach" && data.user.role !== "admin") {
+          throw new Error("This console is for coaches and admins only.");
+        }
+        showConsole(data.user);
+      })
+      .catch(function (err) {
+        $("loginError").textContent = err.message;
+        show($("loginError"));
+      });
+  });
+
+  $("logoutBtn").addEventListener("click", function () {
+    token = null;
+    sessionStorage.removeItem("heos_token");
+    showLogin();
+  });
+
+  $("showIntakeBtn").addEventListener("click", function () {
+    hide($("detailCard"));
+    show($("intakeCard"));
+  });
+
+  $("intakeSubmitBtn").addEventListener("click", function () {
+    hide($("intakeError"));
+    var body = {
+      email: $("intakeEmail").value,
+      priority: $("intakePriority").value || undefined,
+      currentStage: $("intakeStage").value || undefined,
+      readinessStartScore: $("intakeScore").value ? Number($("intakeScore").value) : undefined,
+    };
+    if ($("intakePassword").value) body.password = $("intakePassword").value;
+    api("/cases", { method: "POST", body: body })
+      .then(function () {
+        $("intakeEmail").value = "";
+        $("intakePassword").value = "";
+        $("intakeStage").value = "";
+        $("intakeScore").value = "";
+        hide($("intakeCard"));
+        loadCases();
+      })
+      .catch(function (err) {
+        $("intakeError").textContent = err.message;
+        show($("intakeError"));
+      });
+  });
+
+  $("detailSaveBtn").addEventListener("click", function () {
+    hide($("detailError"));
+    var body = {
+      priority: $("detailPriority").value || undefined,
+      currentStage: $("detailStage").value || undefined,
+      nextBestAction: $("detailAction").value || undefined,
+      readinessCurrentScore: $("detailScore").value ? Number($("detailScore").value) : undefined,
+    };
+    api("/cases/" + currentCaseId, { method: "PATCH", body: body })
+      .then(function () { loadCases(); })
+      .catch(function (err) {
+        $("detailError").textContent = err.message;
+        show($("detailError"));
+      });
+  });
+
+  $("detailCloseBtn").addEventListener("click", function () {
+    if (!confirm("Close this case? It will be archived, not deleted.")) return;
+    api("/cases/" + currentCaseId, { method: "DELETE" })
+      .then(function () { loadCases(); })
+      .catch(function (err) { alert("Failed to close case: " + err.message); });
+  });
+
+  $("backToListBtn").addEventListener("click", loadCases);
+
+  // Resume a session if a token is already stored.
+  if (token) {
+    api("/auth/me").then(function (data) { showConsole(data.user); }).catch(showLogin);
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>

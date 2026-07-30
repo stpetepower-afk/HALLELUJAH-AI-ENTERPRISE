@@ -1,23 +1,51 @@
 // src/cases/routes.ts
 import { Router } from "express";
 import { requireAuth, requireRole, type AuthedRequest } from "../auth/middleware";
+import { getUserByEmail, registerUser, AuthError } from "../auth/service";
 import { createCase, getCase, listCases, updateCase, archiveCase, CaseError } from "./service";
 
 export const caseRouter = Router();
 
 caseRouter.use(requireAuth);
 
+// Intake: a coach enrolling someone who has never registered themselves.
+// Pass userId directly if the person already has an account; otherwise pass
+// email (+ password, to create their account on the spot) to enroll them now.
 caseRouter.post("/", requireRole("coach", "admin"), async (req: AuthedRequest, res) => {
   try {
-    const { userId, priority, currentStage, readinessStartScore, assignedCoach } = req.body ?? {};
-    if (!userId) {
-      res.status(400).json({ error: "userId is required" });
+    const { userId, email, password, priority, currentStage, readinessStartScore, assignedCoach } =
+      req.body ?? {};
+
+    let resolvedUserId: string | undefined = userId;
+    if (!resolvedUserId && email) {
+      const existing = await getUserByEmail(email);
+      if (existing) {
+        resolvedUserId = existing.id;
+      } else if (password) {
+        const { user } = await registerUser(email, password);
+        resolvedUserId = user.id;
+      } else {
+        res.status(400).json({
+          error: "No account exists for that email. Provide a password to enroll them now.",
+        });
+        return;
+      }
+    }
+    if (!resolvedUserId) {
+      res.status(400).json({ error: "userId or email is required" });
       return;
     }
-    const created = await createCase({ userId, priority, currentStage, readinessStartScore, assignedCoach });
+
+    const created = await createCase({
+      userId: resolvedUserId,
+      priority,
+      currentStage,
+      readinessStartScore,
+      assignedCoach,
+    });
     res.status(201).json({ case: created });
   } catch (err) {
-    if (err instanceof CaseError) {
+    if (err instanceof CaseError || err instanceof AuthError) {
       res.status(400).json({ error: err.message });
       return;
     }

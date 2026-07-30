@@ -43,9 +43,15 @@ export async function createCase(input: CreateCaseInput): Promise<Case> {
   return toCase(result.rows[0]);
 }
 
+const SELECT_WITH_PARTICIPANT = `
+  SELECT cases.*, users.email AS participant_email
+  FROM cases
+  JOIN users ON users.id = cases.user_id
+`;
+
 export async function getCase(id: string): Promise<Case | null> {
   const pool = getPool();
-  const result = await pool.query("SELECT * FROM cases WHERE id = $1", [id]);
+  const result = await pool.query(`${SELECT_WITH_PARTICIPANT} WHERE cases.id = $1`, [id]);
   return result.rows[0] ? toCase(result.rows[0]) : null;
 }
 
@@ -59,10 +65,13 @@ export async function listCases(filter: { assignedCoach?: string; userId?: strin
   }
   if (filter.userId) {
     params.push(filter.userId);
-    conditions.push(`user_id = $${params.length}`);
+    conditions.push(`cases.user_id = $${params.length}`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const result = await pool.query(`SELECT * FROM cases ${where} ORDER BY opened_at DESC`, params);
+  const result = await pool.query(
+    `${SELECT_WITH_PARTICIPANT} ${where} ORDER BY opened_at DESC`,
+    params
+  );
   return result.rows.map(toCase);
 }
 
@@ -114,6 +123,7 @@ function toCase(row: {
   readiness_current_score: number | null;
   opened_at: string;
   completed_at: string | null;
+  participant_email?: string;
 }): Case {
   return {
     id: row.id,
@@ -127,5 +137,6 @@ function toCase(row: {
     readinessCurrentScore: row.readiness_current_score,
     openedAt: row.opened_at,
     completedAt: row.completed_at,
+    ...(row.participant_email ? { participantEmail: row.participant_email } : {}),
   };
 }
