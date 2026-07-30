@@ -1,6 +1,6 @@
 # HALLELUJAH-AI-ENTERPRISE
 
-**Status as of 2026-07-30:** early pilot. One real coach/admin user, one real pilot participant (the founder, testing the workflow on himself before it touches anyone else). Not deployed publicly — runs locally. Read [Documents/HANDOFF.md](Documents/HANDOFF.md) before assuming anything about what exists.
+**Status as of 2026-07-30:** early pilot. One real coach/admin user, one real pilot participant (the founder, testing the workflow on himself before it touches anyone else). **Live at https://hallelujah-heos.netlify.app.** Read [Documents/HANDOFF.md](Documents/HANDOFF.md) before assuming anything about what exists — it's a small, early tool, not a finished platform.
 
 ## Project Overview
 HEOS (Hallelujah Enterprise Operating System) is the software side of Hallelujah Ministries' financial-coaching and community-development work. It currently does two things for real: tracks coaching cases for program participants, and generates draft credit-dispute letters for a coach to review and mail (nothing auto-submits anywhere). Everything else referenced in planning documents — Oasis Campus, additional program modules, AI-driven coaching — is roadmap, not built.

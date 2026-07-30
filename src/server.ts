@@ -1,71 +1,8 @@
 // src/server.ts
-import "./config/env";
-import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { authRouter } from "./auth/routes";
-import { caseRouter } from "./cases/routes";
-import { disputeRouter } from "./disputes/routes";
-import { activityRouter } from "./activity/routes";
-import { outcomeRouter } from "./outcomes/routes";
-import { programRouter } from "./programs/routes";
-import { dashboardRouter } from "./dashboard/routes";
-import { complete } from "./config/llm-client";
-import { getPool } from "./db/pool";
+// Local dev entrypoint only -- npm run dev. Production (Netlify) uses
+// netlify/functions/api.ts instead, which imports the same app from ./app.
+import { app } from "./app";
 import { log } from "./utils/logger";
-
-const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
-
-async function checkDatabase(): Promise<"connected" | "error" | "not_configured"> {
-  if (!process.env.DATABASE_URL) return "not_configured";
-  try {
-    await getPool().query("SELECT 1");
-    return "connected";
-  } catch {
-    return "error";
-  }
-}
-
-function checkLLM(): "configured" | "not_configured" {
-  return process.env.NVIDIA_API_KEY || process.env.OPENAI_API_KEY ? "configured" : "not_configured";
-}
-
-const app = express();
-// Default 100kb body limit is too small for base64-encoded credit-report
-// screenshots posted to /disputes/extract.
-app.use(express.json({ limit: "10mb" }));
-
-app.use("/auth", authRouter);
-app.use("/cases", caseRouter);
-app.use("/disputes", disputeRouter);
-app.use("/activity", activityRouter);
-app.use("/outcomes", outcomeRouter);
-app.use("/programs", programRouter);
-app.use("/dashboard", dashboardRouter);
-app.use(express.static(publicDir));
-
-app.post("/llm/complete", async (req, res) => {
-  const { messages } = req.body ?? {};
-  if (!Array.isArray(messages)) {
-    res.status(400).json({ error: "messages array is required" });
-    return;
-  }
-  try {
-    const reply = await complete(messages);
-    res.json({ reply });
-  } catch {
-    res.status(502).json({ error: "LLM request failed" });
-  }
-});
-
-app.get("/health", async (_req, res) => {
-  res.json({
-    status: "ok",
-    database: await checkDatabase(),
-    llm: checkLLM(),
-    jwt: process.env.JWT_SECRET_KEY ? "configured" : "not_configured",
-  });
-});
 
 const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => log(`Server listening on port ${port}`));

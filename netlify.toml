@@ -1,0 +1,11 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+# Static files in publish/ win automatically if they exist (Netlify checks
+# real files before applying a non-forced redirect) -- so this only catches
+# everything else, i.e. the API routes.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200

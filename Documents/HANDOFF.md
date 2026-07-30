@@ -8,7 +8,7 @@ Written for any developer picking this up cold — a different programmer, a fut
 
 ## What this is, in one paragraph
 
-A small Node/TypeScript/Express backend plus one static HTML page, backed by a real Postgres database. It lets a coach (or admin) log in, enroll a program participant, track a coaching case for them, generate a draft credit-dispute letter (optionally seeded by AI-suggested items from an uploaded credit-report screenshot), track outcomes and program enrollments, and see an activity log. There is no participant-facing app, no payment processing, no deployment beyond a developer's own machine, and no automated integration with credit bureaus.
+A small Node/TypeScript/Express backend plus one static HTML page, backed by a real Postgres database, deployed on Netlify at **https://hallelujah-heos.netlify.app**. It lets a coach (or admin) log in, enroll a program participant, track a coaching case for them, generate a draft credit-dispute letter (optionally seeded by AI-suggested items from an uploaded credit-report screenshot), track outcomes and program enrollments, and see an activity log. There is no participant-facing app, no payment processing, and no automated integration with credit bureaus.
 
 ## Important: read this before trusting the module list below
 
@@ -65,10 +65,24 @@ src/
   outcomes/    — speculative; case-metric baseline/current tracking, mounted at /outcomes
   programs/    — speculative; program catalog + case enrollments, mounted at /programs
   dashboard/   — speculative; read-only aggregation of existing cases/disputes data, mounted at /dashboard
-  server.ts                — wires it all together, serves public/ as static files
+  app.ts                   — the Express app itself (no listen()), shared by both entrypoints below
+  server.ts                — LOCAL DEV ONLY entrypoint: imports app, calls app.listen()
 public/
   coach-console.html        — the only UI that exists
+netlify/
+  functions/api.ts          — PRODUCTION entrypoint: wraps app.ts with serverless-http
+netlify.toml                — publish="public" (static files, served directly by Netlify's
+                              CDN), functions="netlify/functions", catch-all redirect to the
+                              function for everything that isn't a real static file
 ```
+
+## Deployment
+
+Live at **https://hallelujah-heos.netlify.app**, deployed via the Netlify CLI (`npx netlify-cli deploy --prod`), linked to the `stpetepower` Netlify account/team. Environment variables (`DATABASE_URL`, `JWT_SECRET_KEY`, `NODE_ENV`) are set directly in Netlify's project settings — not committed to git, and not derived from the local `.env` at deploy time, so if you rotate a secret, update it in **both** places (`netlify env:set KEY value`, then redeploy).
+
+One real bug hit and fixed during the first deploy, worth knowing about if you touch `src/app.ts`: `import.meta.url` (used to locate the `public/` directory for local static serving) does not survive esbuild's CJS bundling for the Netlify Function and crashed *every* request at module-load time, not just static ones. Fixed by gating that whole code path behind `!process.env.LAMBDA_TASK_ROOT` (a Lambda-runtime-only env var, since Netlify Functions run on Lambda) — static files don't need to be served by Express in production anyway, since Netlify's CDN serves `public/` directly and the catch-all redirect only sends non-file requests to the function. If you add more `import.meta.url`-style local-dev-only logic to `app.ts`, guard it the same way, or it will break production silently until someone actually hits it.
+
+To deploy a change: commit and push as normal (git and Netlify are not auto-connected — this was a manual CLI deploy, not a git-triggered build), then run `npx netlify-cli deploy` for a draft/preview URL to test against, and `npx netlify-cli deploy --prod` once it checks out. Always verify the draft URL before promoting — that's what caught the bug above.
 
 ## What's real and tested (not just written)
 
@@ -85,7 +99,7 @@ public/
 - Password reset / account recovery
 - Any credit bureau integration — no report pulling via an API, no automated dispute submission, no API calls to Equifax/Experian/TransUnion. Screenshot-based suggestion exists (see above) but is a human-reviewed suggestion tool, not an integration.
 - Credit freeze functionality — deliberately scoped to informational links only; doing it "for" someone would require holding identity data this system has no reason to store
-- Deployment — this runs on `npm run dev`, on a developer's own machine, full stop
+- Git-triggered deploys (CI/CD) — deployment is a manual `netlify deploy --prod` command, not automatic on push. A pushed commit does NOT go live until someone runs that command.
 - Automated tests — none exist; verification so far has been manual (typecheck + live smoke tests)
 
 ## Security notes for whoever works on this next
@@ -93,6 +107,7 @@ public/
 - Public registration is hardcoded to role `consumer`. This was a real, fixed vulnerability — see the commit that fixed it before changing this logic back.
 - Passwords are bcrypt-hashed, never logged in plaintext (see `src/utils/logger.ts`'s secret-masking, though it currently only masks API key patterns — extend it if you add other secret shapes).
 - `.env` is gitignored and must stay that way. If a real database credential ever gets pasted into a chat log or ticket, rotate it — don't assume it's fine because it's "just dev."
+- **The current `DATABASE_URL` password was pasted into a chat conversation earlier the same day this went live on the public internet.** This was a "rotate it eventually" item while everything was localhost-only; it is not eventually anymore now that the site is publicly reachable at hallelujah-heos.netlify.app. Rotate the Neon password (Neon console → Settings → Reset password), update it via `netlify env:set DATABASE_URL "..."`, and redeploy, before this sits any longer than necessary.
 - This has **not** had a legal/compliance review for the credit-dispute functionality. Do not point it at real third-party program participants (beyond the founder's own pilot case) until that review happens — see PILOT-LOG.md and Documents/OASIS-CAMPUS-MASTER-PLAN.md for context on why.
 - Credit report screenshots uploaded to `/disputes/extract` are processed in memory for that one request and never written to disk or the database. If you modify this endpoint, preserve that property deliberately — a stored credit-report image is a much bigger liability than the last-4-digits account references the rest of this system deliberately limits itself to.
 
