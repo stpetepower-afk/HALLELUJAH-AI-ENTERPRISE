@@ -36,12 +36,13 @@ caseRouter.post("/", requireRole("coach", "admin"), async (req: AuthedRequest, r
       return;
     }
 
+    // Whoever does intake owns the case by default; reassign later via PATCH.
     const created = await createCase({
       userId: resolvedUserId,
       priority,
       currentStage,
       readinessStartScore,
-      assignedCoach,
+      assignedCoach: assignedCoach ?? req.user!.id,
     });
     res.status(201).json({ case: created });
   } catch (err) {
