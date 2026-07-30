@@ -10,6 +10,7 @@ export interface CreateCaseInput {
   userId: string;
   priority?: CasePriority;
   currentStage?: string;
+  nextBestAction?: string;
   readinessStartScore?: number;
   assignedCoach?: string;
 }
@@ -29,13 +30,14 @@ export async function createCase(input: CreateCaseInput): Promise<Case> {
   }
   const pool = getPool();
   const result = await pool.query(
-    `INSERT INTO cases (user_id, priority, current_stage, readiness_start_score, readiness_current_score, assigned_coach)
-     VALUES ($1, $2, $3, $4, $4, $5)
+    `INSERT INTO cases (user_id, priority, current_stage, next_best_action, readiness_start_score, readiness_current_score, assigned_coach)
+     VALUES ($1, $2, $3, $4, $5, $5, $6)
      RETURNING *`,
     [
       input.userId,
       input.priority ?? null,
       input.currentStage ?? null,
+      input.nextBestAction ?? null,
       input.readinessStartScore ?? null,
       input.assignedCoach ?? null,
     ]

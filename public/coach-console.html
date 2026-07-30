@@ -106,6 +106,8 @@
           <input id="intakeScore" type="number" />
         </div>
       </div>
+      <label for="intakeAction">Next best action</label>
+      <textarea id="intakeAction"></textarea>
       <button class="primary" id="intakeSubmitBtn">Create case</button>
       <div class="error hidden" id="intakeError"></div>
     </section>
@@ -256,6 +258,7 @@
       email: $("intakeEmail").value,
       priority: $("intakePriority").value || undefined,
       currentStage: $("intakeStage").value || undefined,
+      nextBestAction: $("intakeAction").value || undefined,
       readinessStartScore: $("intakeScore").value ? Number($("intakeScore").value) : undefined,
     };
     if ($("intakePassword").value) body.password = $("intakePassword").value;
@@ -265,6 +268,7 @@
         $("intakePassword").value = "";
         $("intakeStage").value = "";
         $("intakeScore").value = "";
+        $("intakeAction").value = "";
         hide($("intakeCard"));
         loadCases();
       })

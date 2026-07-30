@@ -13,7 +13,7 @@ caseRouter.use(requireAuth);
 // email (+ password, to create their account on the spot) to enroll them now.
 caseRouter.post("/", requireRole("coach", "admin"), async (req: AuthedRequest, res) => {
   try {
-    const { userId, email, password, priority, currentStage, readinessStartScore, assignedCoach } =
+    const { userId, email, password, priority, currentStage, nextBestAction, readinessStartScore, assignedCoach } =
       req.body ?? {};
 
     let resolvedUserId: string | undefined = userId;
@@ -41,6 +41,7 @@ caseRouter.post("/", requireRole("coach", "admin"), async (req: AuthedRequest, r
       userId: resolvedUserId,
       priority,
       currentStage,
+      nextBestAction,
       readinessStartScore,
       assignedCoach: assignedCoach ?? req.user!.id,
     });
