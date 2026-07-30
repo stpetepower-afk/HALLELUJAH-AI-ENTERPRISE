@@ -22,6 +22,7 @@ All documentation is in the `/Documents` folder:
 - Documents/ARCHITECTURE.md — system architecture & technology stack
 - Documents/ADR-TEMPLATE.md — architecture decision record template
 - Documents/DECISIONS.md — decision log & process
+- Documents/OASIS-CAMPUS-MASTER-PLAN.md — fourplex pilot → 10-year community development roadmap (draft, pre-financing)
 
 ### Security & Onboarding
 - Documents/SECURITY.md — data protection and incident response
