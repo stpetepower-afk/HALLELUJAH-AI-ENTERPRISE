@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth, requireRole, type AuthedRequest } from "../auth/middleware";
 import { getUserByEmail, registerUser, AuthError } from "../auth/service";
 import { createCase, getCase, listCases, updateCase, archiveCase, CaseError } from "./service";
+import { recordActivity } from "../activity/service";
 
 export const caseRouter = Router();
 
@@ -45,6 +46,7 @@ caseRouter.post("/", requireRole("coach", "admin"), async (req: AuthedRequest, r
       readinessStartScore,
       assignedCoach: assignedCoach ?? req.user!.id,
     });
+    await recordActivity(created.id, req.user!.id, "case_created", "Case opened via intake");
     res.status(201).json({ case: created });
   } catch (err) {
     if (err instanceof CaseError || err instanceof AuthError) {
@@ -84,6 +86,8 @@ caseRouter.patch("/:id", requireRole("coach", "admin"), async (req: AuthedReques
       res.status(404).json({ error: "Case not found" });
       return;
     }
+    const changedFields = Object.keys(req.body ?? {}).join(", ");
+    await recordActivity(updated.id, req.user!.id, "case_updated", `Updated: ${changedFields}`);
     res.json({ case: updated });
   } catch (err) {
     if (err instanceof CaseError) {
@@ -101,5 +105,6 @@ caseRouter.delete("/:id", requireRole("coach", "admin"), async (req: AuthedReque
     res.status(404).json({ error: "Case not found" });
     return;
   }
+  await recordActivity(archived.id, req.user!.id, "case_closed");
   res.json({ case: archived });
 });

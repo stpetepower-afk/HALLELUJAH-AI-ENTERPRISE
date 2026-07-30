@@ -41,3 +41,34 @@ export async function complete(messages: ChatMessage[]): Promise<string> {
     throw err;
   }
 }
+
+// Image input needs a vision-capable model. The NVIDIA default (DeepSeek R1)
+// does not support it, so this deliberately requires OpenAI rather than
+// silently trying a text model against an image.
+export async function completeWithImage(prompt: string, imageDataUrl: string): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      "Image analysis requires OPENAI_API_KEY -- the configured NVIDIA model does not support image input."
+    );
+  }
+  const client = new OpenAI({ apiKey: requireSecret("OPENAI_API_KEY") });
+  const model = process.env.OPENAI_VISION_MODEL || "gpt-4o-mini";
+  try {
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+    });
+    return response.choices[0]?.message?.content ?? "";
+  } catch (err) {
+    log("Vision LLM call failed:", err instanceof Error ? err.message : err);
+    throw err;
+  }
+}

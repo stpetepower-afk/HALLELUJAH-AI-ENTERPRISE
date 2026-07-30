@@ -1,6 +1,14 @@
 // src/auth/routes.ts
 import { Router } from "express";
-import { registerUser, loginUser, updateUserRole, updateUserFullName, getUserById, AuthError } from "./service";
+import {
+  registerUser,
+  loginUser,
+  updateUserRole,
+  updateUserFullName,
+  updateUserAddress,
+  getUserById,
+  AuthError,
+} from "./service";
 import { requireAuth, requireRole, type AuthedRequest } from "./middleware";
 
 export const authRouter = Router();
@@ -52,6 +60,15 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ user });
 });
 
+authRouter.get("/users/:id", requireAuth, requireRole("coach", "admin"), async (req, res) => {
+  const user = await getUserById(req.params.id);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({ user });
+});
+
 authRouter.patch("/users/:id/full-name", requireAuth, requireRole("coach", "admin"), async (req: AuthedRequest, res) => {
   const { fullName } = req.body ?? {};
   if (!fullName || typeof fullName !== "string") {
@@ -59,6 +76,21 @@ authRouter.patch("/users/:id/full-name", requireAuth, requireRole("coach", "admi
     return;
   }
   const updated = await updateUserFullName(req.params.id, fullName);
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({ user: updated });
+});
+
+authRouter.patch("/users/:id/address", requireAuth, requireRole("coach", "admin"), async (req: AuthedRequest, res) => {
+  const { addressLine1, city, state, postalCode } = req.body ?? {};
+  const updated = await updateUserAddress(req.params.id, {
+    addressLine1: addressLine1 ?? null,
+    city: city ?? null,
+    state: state ?? null,
+    postalCode: postalCode ?? null,
+  });
   if (!updated) {
     res.status(404).json({ error: "User not found" });
     return;

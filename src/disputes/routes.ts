@@ -3,7 +3,7 @@
 // so requireAuth stays scoped here and never intercepts unrelated requests
 // (it previously being mounted at app root broke static file serving).
 import { Router } from "express";
-import { requireAuth, requireRole } from "../auth/middleware";
+import { requireAuth, requireRole, type AuthedRequest } from "../auth/middleware";
 import { getCase } from "../cases/service";
 import { getUserById } from "../auth/service";
 import {
@@ -14,6 +14,8 @@ import {
   DisputeError,
 } from "./service";
 import { generateDisputeLetter } from "./letter";
+import { extractDisputeItemsFromImage } from "./extract";
+import { recordActivity } from "../activity/service";
 
 export const disputeRouter = Router();
 
@@ -35,7 +37,7 @@ disputeRouter.get("/", async (req, res) => {
   res.json({ disputes });
 });
 
-disputeRouter.post("/", async (req, res) => {
+disputeRouter.post("/", async (req: AuthedRequest, res) => {
   try {
     const { caseId, bureau, creditorName, accountReference, reason } = req.body ?? {};
     if (!caseId || !bureau || !creditorName || !reason) {
@@ -48,6 +50,7 @@ disputeRouter.post("/", async (req, res) => {
       return;
     }
     const created = await createDispute({ caseId, bureau, creditorName, accountReference, reason });
+    await recordActivity(caseId, req.user!.id, "dispute_created", `${bureau}: ${creditorName}`);
     res.status(201).json({ dispute: created });
   } catch (err) {
     if (err instanceof DisputeError) {
@@ -75,6 +78,24 @@ disputeRouter.patch("/:id", async (req, res) => {
   }
 });
 
+// Suggests dispute items from an uploaded credit-report screenshot. The image
+// is used in memory for this one request and never written to disk or the
+// database. Returns suggestions only -- nothing is created here; the coach
+// reviews each item and submits it via POST / to actually create a dispute.
+disputeRouter.post("/extract", async (req, res) => {
+  const { imageDataUrl } = req.body ?? {};
+  if (!imageDataUrl || typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
+    res.status(400).json({ error: "imageDataUrl is required and must be a data:image/... URL" });
+    return;
+  }
+  try {
+    const items = await extractDisputeItemsFromImage(imageDataUrl);
+    res.json({ items });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Extraction failed" });
+  }
+});
+
 // Renders a draft letter — never sends or submits anything.
 disputeRouter.get("/:id/letter", async (req, res) => {
   const dispute = await getDispute(req.params.id);
@@ -96,6 +117,12 @@ disputeRouter.get("/:id/letter", async (req, res) => {
     res.status(400).json({ error: "Participant's full name must be set before generating a letter" });
     return;
   }
-  const letter = generateDisputeLetter(dispute, { fullName: consumer.fullName });
+  const letter = generateDisputeLetter(dispute, {
+    fullName: consumer.fullName,
+    addressLine1: consumer.addressLine1,
+    city: consumer.city,
+    state: consumer.state,
+    postalCode: consumer.postalCode,
+  });
   res.json({ letter });
 });

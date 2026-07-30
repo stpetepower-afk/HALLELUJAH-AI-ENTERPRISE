@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { authRouter } from "./auth/routes";
 import { caseRouter } from "./cases/routes";
 import { disputeRouter } from "./disputes/routes";
+import { activityRouter } from "./activity/routes";
+import { outcomeRouter } from "./outcomes/routes";
+import { programRouter } from "./programs/routes";
+import { dashboardRouter } from "./dashboard/routes";
 import { complete } from "./config/llm-client";
 import { getPool } from "./db/pool";
 import { log } from "./utils/logger";
@@ -27,11 +31,17 @@ function checkLLM(): "configured" | "not_configured" {
 }
 
 const app = express();
-app.use(express.json());
+// Default 100kb body limit is too small for base64-encoded credit-report
+// screenshots posted to /disputes/extract.
+app.use(express.json({ limit: "10mb" }));
 
 app.use("/auth", authRouter);
 app.use("/cases", caseRouter);
 app.use("/disputes", disputeRouter);
+app.use("/activity", activityRouter);
+app.use("/outcomes", outcomeRouter);
+app.use("/programs", programRouter);
+app.use("/dashboard", dashboardRouter);
 app.use(express.static(publicDir));
 
 app.post("/llm/complete", async (req, res) => {

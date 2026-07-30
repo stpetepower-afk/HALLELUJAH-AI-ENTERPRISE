@@ -65,6 +65,15 @@
   </section>
 
   <section id="consoleView" class="hidden">
+    <div class="card" id="dashboardCard">
+      <h2>Overview</h2>
+      <div class="row">
+        <div><span class="muted">Active cases</span><br><strong id="dashActiveCases">—</strong></div>
+        <div><span class="muted">Closed cases</span><br><strong id="dashClosedCases">—</strong></div>
+        <div><span class="muted">Avg. days open</span><br><strong id="dashAvgDays">—</strong></div>
+      </div>
+    </div>
+
     <div class="card" id="casesCard">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2>Cases</h2>
@@ -122,6 +131,15 @@
         <button class="primary" id="detailNameSaveBtn" style="margin-top:0;">Save name</button>
       </div>
 
+      <label for="detailAddress" style="margin-top:0.75rem;">Mailing address (fills in the dispute letter automatically once set)</label>
+      <div class="row">
+        <input id="detailAddress" type="text" placeholder="Street address" />
+        <input id="detailCity" type="text" placeholder="City" />
+        <input id="detailState" type="text" placeholder="ST" maxlength="2" style="max-width:4rem;" />
+        <input id="detailZip" type="text" placeholder="ZIP" style="max-width:6rem;" />
+        <button class="primary" id="detailAddressSaveBtn" style="margin-top:0;">Save address</button>
+      </div>
+
       <div class="row" style="margin-top:0.75rem;">
         <div>
           <label for="detailPriority">Priority</label>
@@ -160,6 +178,13 @@
       </table>
       <p class="muted" id="disputeListEmpty">No disputes yet.</p>
 
+      <h3 style="margin-top:1.5rem;">Suggest items from a credit report screenshot</h3>
+      <p class="muted">The image is only used for this one request and is never stored. Suggestions must be reviewed before becoming a real dispute — extraction accuracy is unverified.</p>
+      <input id="creditReportFile" type="file" accept="image/*" />
+      <button class="primary" id="extractBtn" style="margin-top:0.5rem;">Extract items</button>
+      <div class="error hidden" id="extractError"></div>
+      <div id="extractResults"></div>
+
       <h3 style="margin-top:1.5rem;">Add a dispute</h3>
       <div class="row">
         <div>
@@ -189,6 +214,43 @@
         <textarea id="letterText" readonly style="min-height: 16rem; font-family: ui-monospace, monospace; font-size: 0.85rem;"></textarea>
         <p class="muted">Select all and copy, then complete the bracketed fields before printing and mailing.</p>
       </div>
+    </section>
+
+    <section id="outcomesCard" class="card hidden">
+      <h2>Outcomes</h2>
+      <p class="muted">Speculative — built ahead of real usage data, so the metric list below is a guess, not a validated framework.</p>
+      <table>
+        <thead><tr><th>Metric</th><th>Baseline</th><th>Current</th><th>Unit</th></tr></thead>
+        <tbody id="outcomeRows"></tbody>
+      </table>
+      <p class="muted" id="outcomeListEmpty">No outcomes tracked yet.</p>
+      <div class="row" style="margin-top:0.75rem;">
+        <input id="outcomeMetric" type="text" placeholder="Metric, e.g. credit_score" />
+        <input id="outcomeBaseline" type="text" placeholder="Baseline value" />
+        <input id="outcomeCurrent" type="text" placeholder="Current value" />
+        <input id="outcomeUnit" type="text" placeholder="Unit, e.g. FICO" />
+        <button class="primary" id="outcomeSubmitBtn" style="margin-top:0;">Save</button>
+      </div>
+    </section>
+
+    <section id="programsCard" class="card hidden">
+      <h2>Program enrollments</h2>
+      <table>
+        <thead><tr><th>Program</th><th>Status</th><th>Enrolled</th></tr></thead>
+        <tbody id="programRows"></tbody>
+      </table>
+      <p class="muted" id="programListEmpty">Not enrolled in any programs yet.</p>
+      <div class="row" style="margin-top:0.75rem;">
+        <select id="programSelect"></select>
+        <button class="primary" id="programEnrollBtn" style="margin-top:0;">Enroll</button>
+      </div>
+    </section>
+
+    <section id="activityCard" class="card hidden">
+      <h2>Activity timeline</h2>
+      <p class="muted">Every case/dispute/outcome/program action, automatically recorded.</p>
+      <ul id="activityList" style="list-style:none; padding:0;"></ul>
+      <p class="muted" id="activityListEmpty">No activity yet.</p>
     </section>
 
     <section class="card">
@@ -240,13 +302,26 @@
     loadCases();
   }
 
+  function loadDashboard() {
+    api("/dashboard").then(function (data) {
+      $("dashActiveCases").textContent = data.activeCases;
+      $("dashClosedCases").textContent = data.closedCases;
+      $("dashAvgDays").textContent = data.avgDaysOpen != null ? data.avgDaysOpen.toFixed(1) : "—";
+    }).catch(function () { /* non-critical, fail quietly */ });
+  }
+
   function loadCases() {
     hide($("detailCard"));
     hide($("intakeCard"));
     hide($("disputesCard"));
+    hide($("outcomesCard"));
+    hide($("programsCard"));
+    hide($("activityCard"));
     hide($("letterView"));
     show($("consoleView"));
+    show($("dashboardCard"));
     show($("casesCard"));
+    loadDashboard();
     api("/cases").then(function (data) {
       var rows = data.cases || [];
       var tbody = $("caseRows");
@@ -283,12 +358,89 @@
       hide($("detailError"));
       show($("detailCard"));
       hide($("casesCard"));
+      hide($("dashboardCard"));
       show($("disputesCard"));
+      show($("outcomesCard"));
+      show($("programsCard"));
+      show($("activityCard"));
       hide($("letterView"));
       loadDisputes(id);
+      loadOutcomes(id);
+      loadPrograms(id);
+      loadActivity(id);
+      api("/auth/users/" + c.userId).then(function (userData) {
+        var u = userData.user;
+        $("detailAddress").value = u.addressLine1 || "";
+        $("detailCity").value = u.city || "";
+        $("detailState").value = u.state || "";
+        $("detailZip").value = u.postalCode || "";
+      }).catch(function () { /* address is optional to load */ });
     }).catch(function (err) {
       alert("Failed to load case: " + err.message);
     });
+  }
+
+  function loadOutcomes(caseId) {
+    api("/outcomes?caseId=" + encodeURIComponent(caseId)).then(function (data) {
+      var rows = data.outcomes || [];
+      var tbody = $("outcomeRows");
+      tbody.innerHTML = "";
+      $("outcomeListEmpty").classList.toggle("hidden", rows.length > 0);
+      rows.forEach(function (o) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + o.metric + "</td>" +
+          "<td>" + (o.baselineValue ?? "—") + "</td>" +
+          "<td>" + (o.currentValue ?? "—") + "</td>" +
+          "<td>" + (o.unit ?? "—") + "</td>";
+        tbody.appendChild(tr);
+      });
+    }).catch(function (err) { alert("Failed to load outcomes: " + err.message); });
+  }
+
+  function loadPrograms(caseId) {
+    api("/programs/cases/" + caseId).then(function (data) {
+      var rows = data.programs || [];
+      var tbody = $("programRows");
+      tbody.innerHTML = "";
+      $("programListEmpty").classList.toggle("hidden", rows.length > 0);
+      rows.forEach(function (p) {
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + p.programName + "</td>" +
+          "<td>" + p.status + "</td>" +
+          "<td>" + new Date(p.enrolledAt).toLocaleDateString() + "</td>";
+        tbody.appendChild(tr);
+      });
+    }).catch(function (err) { alert("Failed to load programs: " + err.message); });
+
+    api("/programs").then(function (data) {
+      var select = $("programSelect");
+      select.innerHTML = "";
+      (data.programs || []).forEach(function (p) {
+        var opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+      });
+    });
+  }
+
+  function loadActivity(caseId) {
+    api("/activity?caseId=" + encodeURIComponent(caseId)).then(function (data) {
+      var entries = data.activity || [];
+      var list = $("activityList");
+      list.innerHTML = "";
+      $("activityListEmpty").classList.toggle("hidden", entries.length > 0);
+      entries.forEach(function (e) {
+        var li = document.createElement("li");
+        li.style.padding = "0.4rem 0";
+        li.style.borderBottom = "1px solid #eee";
+        li.style.fontSize = "0.85rem";
+        li.textContent = new Date(e.createdAt).toLocaleString() + " — " + e.action + (e.detail ? ": " + e.detail : "");
+        list.appendChild(li);
+      });
+    }).catch(function (err) { alert("Failed to load activity: " + err.message); });
   }
 
   function loadDisputes(caseId) {
@@ -441,11 +593,109 @@
         $("disputeAccountRef").value = "";
         $("disputeReason").value = "";
         loadDisputes(currentCaseId);
+        loadActivity(currentCaseId);
       })
       .catch(function (err) {
         $("disputeError").textContent = err.message;
         show($("disputeError"));
       });
+  });
+
+  $("detailAddressSaveBtn").addEventListener("click", function () {
+    hide($("detailError"));
+    var body = {
+      addressLine1: $("detailAddress").value || undefined,
+      city: $("detailCity").value || undefined,
+      state: $("detailState").value || undefined,
+      postalCode: $("detailZip").value || undefined,
+    };
+    api("/auth/users/" + currentParticipantId + "/address", { method: "PATCH", body: body })
+      .catch(function (err) {
+        $("detailError").textContent = err.message;
+        show($("detailError"));
+      });
+  });
+
+  $("extractBtn").addEventListener("click", function () {
+    hide($("extractError"));
+    $("extractResults").innerHTML = "";
+    var file = $("creditReportFile").files[0];
+    if (!file) {
+      $("extractError").textContent = "Choose an image first.";
+      show($("extractError"));
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      api("/disputes/extract", { method: "POST", body: { imageDataUrl: reader.result } })
+        .then(function (data) {
+          var items = data.items || [];
+          if (!items.length) {
+            $("extractResults").innerHTML = '<p class="muted">No items suggested (or nothing disputable was found).</p>';
+            return;
+          }
+          items.forEach(function (item) {
+            var div = document.createElement("div");
+            div.style.cssText = "border:1px solid #ddd; border-radius:4px; padding:0.5rem; margin-top:0.5rem;";
+            div.innerHTML =
+              "<strong>" + item.creditorName + "</strong> (" + (item.bureau || "bureau unknown") + ")<br>" +
+              '<span class="muted">' + item.suggestedReason + "</span>";
+            var useBtn = document.createElement("button");
+            useBtn.className = "link";
+            useBtn.textContent = "Use this — fill the form below";
+            useBtn.style.display = "block";
+            useBtn.style.marginTop = "0.3rem";
+            useBtn.addEventListener("click", function () {
+              $("disputeCreditor").value = item.creditorName;
+              $("disputeAccountRef").value = item.accountReference || "";
+              $("disputeReason").value = item.suggestedReason;
+              if (item.bureau) $("disputeBureau").value = item.bureau;
+            });
+            div.appendChild(useBtn);
+            $("extractResults").appendChild(div);
+          });
+        })
+        .catch(function (err) {
+          $("extractError").textContent = err.message;
+          show($("extractError"));
+        });
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("outcomeSubmitBtn").addEventListener("click", function () {
+    var metric = $("outcomeMetric").value.trim();
+    if (!metric) { alert("Metric name is required."); return; }
+    api("/outcomes", {
+      method: "POST",
+      body: {
+        caseId: currentCaseId,
+        metric: metric,
+        baselineValue: $("outcomeBaseline").value || undefined,
+        currentValue: $("outcomeCurrent").value || undefined,
+        unit: $("outcomeUnit").value || undefined,
+      },
+    })
+      .then(function () {
+        $("outcomeMetric").value = "";
+        $("outcomeBaseline").value = "";
+        $("outcomeCurrent").value = "";
+        $("outcomeUnit").value = "";
+        loadOutcomes(currentCaseId);
+        loadActivity(currentCaseId);
+      })
+      .catch(function (err) { alert("Failed to save outcome: " + err.message); });
+  });
+
+  $("programEnrollBtn").addEventListener("click", function () {
+    var programId = $("programSelect").value;
+    if (!programId) { alert("No program selected."); return; }
+    api("/programs/cases/" + currentCaseId, { method: "POST", body: { programId: programId } })
+      .then(function () {
+        loadPrograms(currentCaseId);
+        loadActivity(currentCaseId);
+      })
+      .catch(function (err) { alert("Failed to enroll: " + err.message); });
   });
 
   $("backToListBtn").addEventListener("click", loadCases);

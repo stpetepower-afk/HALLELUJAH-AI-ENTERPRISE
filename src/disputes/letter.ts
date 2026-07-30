@@ -22,18 +22,26 @@ const BUREAU_INFO: Record<Bureau, { name: string; address: string[] }> = {
 
 export interface LetterConsumer {
   fullName: string;
+  addressLine1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
 }
 
 export function generateDisputeLetter(dispute: Dispute, consumer: LetterConsumer): string {
   const bureau = BUREAU_INFO[dispute.bureau];
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const cityStateZip =
+    consumer.city && consumer.state && consumer.postalCode
+      ? `${consumer.city}, ${consumer.state} ${consumer.postalCode}`
+      : null;
 
   const lines = [
     "[DRAFT — review and complete before mailing. This is not legal advice, and mailing this letter does not guarantee any outcome.]",
     "",
     consumer.fullName,
-    "[Your street address]",
-    "[City, State ZIP]",
+    consumer.addressLine1 || "[Your street address]",
+    cityStateZip || "[City, State ZIP]",
     "",
     today,
     "",
