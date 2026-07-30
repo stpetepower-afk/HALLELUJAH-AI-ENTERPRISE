@@ -5,5 +5,6 @@ export interface User {
   id: string;
   email: string;
   role: Role;
+  fullName: string | null;
   createdAt: string;
 }

@@ -1,6 +1,6 @@
 // src/auth/routes.ts
 import { Router } from "express";
-import { registerUser, loginUser, updateUserRole, getUserById, AuthError } from "./service";
+import { registerUser, loginUser, updateUserRole, updateUserFullName, getUserById, AuthError } from "./service";
 import { requireAuth, requireRole, type AuthedRequest } from "./middleware";
 
 export const authRouter = Router();
@@ -50,6 +50,20 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     return;
   }
   res.json({ user });
+});
+
+authRouter.patch("/users/:id/full-name", requireAuth, requireRole("coach", "admin"), async (req: AuthedRequest, res) => {
+  const { fullName } = req.body ?? {};
+  if (!fullName || typeof fullName !== "string") {
+    res.status(400).json({ error: "fullName is required" });
+    return;
+  }
+  const updated = await updateUserFullName(req.params.id, fullName);
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({ user: updated });
 });
 
 authRouter.patch("/users/:id/role", requireAuth, requireRole("admin"), async (req: AuthedRequest, res) => {

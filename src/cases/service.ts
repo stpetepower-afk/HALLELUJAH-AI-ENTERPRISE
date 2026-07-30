@@ -46,7 +46,7 @@ export async function createCase(input: CreateCaseInput): Promise<Case> {
 }
 
 const SELECT_WITH_PARTICIPANT = `
-  SELECT cases.*, users.email AS participant_email
+  SELECT cases.*, users.email AS participant_email, users.full_name AS participant_full_name
   FROM cases
   JOIN users ON users.id = cases.user_id
 `;
@@ -126,6 +126,7 @@ function toCase(row: {
   opened_at: string;
   completed_at: string | null;
   participant_email?: string;
+  participant_full_name?: string | null;
 }): Case {
   return {
     id: row.id,
@@ -140,5 +141,6 @@ function toCase(row: {
     openedAt: row.opened_at,
     completedAt: row.completed_at,
     ...(row.participant_email ? { participantEmail: row.participant_email } : {}),
+    ...(row.participant_full_name ? { participantFullName: row.participant_full_name } : {}),
   };
 }

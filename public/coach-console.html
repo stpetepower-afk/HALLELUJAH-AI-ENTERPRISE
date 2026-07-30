@@ -115,7 +115,14 @@
     <section id="detailCard" class="card hidden">
       <button class="link" id="backToListBtn">&larr; Back to cases</button>
       <h2 id="detailTitle"></h2>
+
+      <label for="detailFullName">Participant's full legal name (required before generating any dispute letter)</label>
       <div class="row">
+        <input id="detailFullName" type="text" placeholder="As it should appear on official mail" />
+        <button class="primary" id="detailNameSaveBtn" style="margin-top:0;">Save name</button>
+      </div>
+
+      <div class="row" style="margin-top:0.75rem;">
         <div>
           <label for="detailPriority">Priority</label>
           <select id="detailPriority">
@@ -141,6 +148,58 @@
       <button class="link" id="detailCloseBtn" style="margin-top:0.75rem; color:#b3261e;">Close this case</button>
       <div class="error hidden" id="detailError"></div>
     </section>
+
+    <section id="disputesCard" class="card hidden">
+      <h2>Credit report disputes</h2>
+      <p class="muted">Drafts only. Nothing here is sent anywhere automatically — every letter is generated for the coach/participant to review, print, and mail themselves.</p>
+      <table>
+        <thead>
+          <tr><th>Bureau</th><th>Creditor</th><th>Status</th><th>Reason</th><th></th></tr>
+        </thead>
+        <tbody id="disputeRows"></tbody>
+      </table>
+      <p class="muted" id="disputeListEmpty">No disputes yet.</p>
+
+      <h3 style="margin-top:1.5rem;">Add a dispute</h3>
+      <div class="row">
+        <div>
+          <label for="disputeBureau">Bureau</label>
+          <select id="disputeBureau">
+            <option value="equifax">Equifax</option>
+            <option value="experian">Experian</option>
+            <option value="transunion">TransUnion</option>
+          </select>
+        </div>
+        <div>
+          <label for="disputeCreditor">Creditor / furnisher name</label>
+          <input id="disputeCreditor" type="text" />
+        </div>
+        <div>
+          <label for="disputeAccountRef">Account reference (last 4 only — don't enter full account numbers)</label>
+          <input id="disputeAccountRef" type="text" />
+        </div>
+      </div>
+      <label for="disputeReason">Reason for dispute</label>
+      <textarea id="disputeReason" placeholder="e.g. This account was paid in full in March 2025 but is still showing a balance."></textarea>
+      <button class="primary" id="disputeSubmitBtn">Add dispute</button>
+      <div class="error hidden" id="disputeError"></div>
+
+      <div id="letterView" class="hidden" style="margin-top:1.5rem;">
+        <h3>Draft letter</h3>
+        <textarea id="letterText" readonly style="min-height: 16rem; font-family: ui-monospace, monospace; font-size: 0.85rem;"></textarea>
+        <p class="muted">Select all and copy, then complete the bracketed fields before printing and mailing.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Credit freeze guidance</h2>
+      <p class="muted">Freezing credit is free and done directly by the consumer at each bureau — this tool doesn't do it for anyone, since that would require handling their identity data unnecessarily. Point participants to the official pages:</p>
+      <ul>
+        <li><a href="https://www.equifax.com/personal/credit-report-services/credit-freeze/" target="_blank" rel="noopener">Equifax security freeze</a></li>
+        <li><a href="https://www.experian.com/freeze/center.html" target="_blank" rel="noopener">Experian security freeze</a></li>
+        <li><a href="https://www.transunion.com/credit-freeze" target="_blank" rel="noopener">TransUnion security freeze</a></li>
+      </ul>
+    </section>
   </section>
 </main>
 
@@ -148,6 +207,7 @@
 (function () {
   var token = sessionStorage.getItem("heos_token") || null;
   var currentCaseId = null;
+  var currentParticipantId = null;
 
   var $ = function (id) { return document.getElementById(id); };
   var show = function (el) { el.classList.remove("hidden"); };
@@ -183,6 +243,8 @@
   function loadCases() {
     hide($("detailCard"));
     hide($("intakeCard"));
+    hide($("disputesCard"));
+    hide($("letterView"));
     show($("consoleView"));
     show($("casesCard"));
     api("/cases").then(function (data) {
@@ -211,7 +273,9 @@
     api("/cases/" + id).then(function (data) {
       var c = data.case;
       currentCaseId = c.id;
+      currentParticipantId = c.userId;
       $("detailTitle").textContent = c.participantEmail || c.userId;
+      $("detailFullName").value = c.participantFullName || "";
       $("detailPriority").value = c.priority || "";
       $("detailStage").value = c.currentStage || "";
       $("detailScore").value = c.readinessCurrentScore ?? "";
@@ -219,8 +283,54 @@
       hide($("detailError"));
       show($("detailCard"));
       hide($("casesCard"));
+      show($("disputesCard"));
+      hide($("letterView"));
+      loadDisputes(id);
     }).catch(function (err) {
       alert("Failed to load case: " + err.message);
+    });
+  }
+
+  function loadDisputes(caseId) {
+    api("/disputes?caseId=" + encodeURIComponent(caseId)).then(function (data) {
+      var rows = data.disputes || [];
+      var tbody = $("disputeRows");
+      tbody.innerHTML = "";
+      $("disputeListEmpty").classList.toggle("hidden", rows.length > 0);
+      rows.forEach(function (d) {
+        var tr = document.createElement("tr");
+        var bureauCell = document.createElement("td");
+        bureauCell.textContent = d.bureau;
+        var creditorCell = document.createElement("td");
+        creditorCell.textContent = d.creditorName;
+        var statusCell = document.createElement("td");
+        statusCell.textContent = d.status;
+        var reasonCell = document.createElement("td");
+        reasonCell.textContent = d.reason;
+        var actionCell = document.createElement("td");
+        var letterBtn = document.createElement("button");
+        letterBtn.className = "link";
+        letterBtn.textContent = "View letter";
+        letterBtn.addEventListener("click", function () { viewLetter(d.id); });
+        actionCell.appendChild(letterBtn);
+        tr.appendChild(bureauCell);
+        tr.appendChild(creditorCell);
+        tr.appendChild(statusCell);
+        tr.appendChild(reasonCell);
+        tr.appendChild(actionCell);
+        tbody.appendChild(tr);
+      });
+    }).catch(function (err) {
+      alert("Failed to load disputes: " + err.message);
+    });
+  }
+
+  function viewLetter(disputeId) {
+    api("/disputes/" + disputeId + "/letter").then(function (data) {
+      $("letterText").value = data.letter;
+      show($("letterView"));
+    }).catch(function (err) {
+      alert("Could not generate letter: " + err.message);
     });
   }
 
@@ -299,6 +409,43 @@
     api("/cases/" + currentCaseId, { method: "DELETE" })
       .then(function () { loadCases(); })
       .catch(function (err) { alert("Failed to close case: " + err.message); });
+  });
+
+  $("detailNameSaveBtn").addEventListener("click", function () {
+    hide($("detailError"));
+    var fullName = $("detailFullName").value.trim();
+    if (!fullName) {
+      $("detailError").textContent = "Full name can't be empty.";
+      show($("detailError"));
+      return;
+    }
+    api("/auth/users/" + currentParticipantId + "/full-name", { method: "PATCH", body: { fullName: fullName } })
+      .catch(function (err) {
+        $("detailError").textContent = err.message;
+        show($("detailError"));
+      });
+  });
+
+  $("disputeSubmitBtn").addEventListener("click", function () {
+    hide($("disputeError"));
+    var body = {
+      caseId: currentCaseId,
+      bureau: $("disputeBureau").value,
+      creditorName: $("disputeCreditor").value,
+      accountReference: $("disputeAccountRef").value || undefined,
+      reason: $("disputeReason").value,
+    };
+    api("/disputes", { method: "POST", body: body })
+      .then(function () {
+        $("disputeCreditor").value = "";
+        $("disputeAccountRef").value = "";
+        $("disputeReason").value = "";
+        loadDisputes(currentCaseId);
+      })
+      .catch(function (err) {
+        $("disputeError").textContent = err.message;
+        show($("disputeError"));
+      });
   });
 
   $("backToListBtn").addEventListener("click", loadCases);

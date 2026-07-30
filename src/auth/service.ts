@@ -19,7 +19,7 @@ export async function registerUser(email: string, password: string, role: Role =
   const passwordHash = await hashPassword(password);
   const result = await pool.query(
     `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)
-     RETURNING id, email, role, created_at`,
+     RETURNING id, email, role, full_name, created_at`,
     [email, passwordHash, role]
   );
   const user = toUser(result.rows[0]);
@@ -29,7 +29,7 @@ export async function registerUser(email: string, password: string, role: Role =
 export async function loginUser(email: string, password: string) {
   const pool = getPool();
   const result = await pool.query(
-    "SELECT id, email, role, password_hash, created_at FROM users WHERE email = $1",
+    "SELECT id, email, role, full_name, password_hash, created_at FROM users WHERE email = $1",
     [email]
   );
   const row = result.rows[0];
@@ -43,7 +43,7 @@ export async function loginUser(email: string, password: string) {
 export async function getUserById(id: string): Promise<User | null> {
   const pool = getPool();
   const result = await pool.query(
-    "SELECT id, email, role, created_at FROM users WHERE id = $1",
+    "SELECT id, email, role, full_name, created_at FROM users WHERE id = $1",
     [id]
   );
   return result.rows[0] ? toUser(result.rows[0]) : null;
@@ -52,7 +52,7 @@ export async function getUserById(id: string): Promise<User | null> {
 export async function getUserByEmail(email: string): Promise<User | null> {
   const pool = getPool();
   const result = await pool.query(
-    "SELECT id, email, role, created_at FROM users WHERE email = $1",
+    "SELECT id, email, role, full_name, created_at FROM users WHERE email = $1",
     [email]
   );
   return result.rows[0] ? toUser(result.rows[0]) : null;
@@ -63,12 +63,28 @@ export async function updateUserRole(id: string, role: Role): Promise<User | nul
   if (!VALID_ROLES.includes(role)) throw new AuthError("Invalid role");
   const pool = getPool();
   const result = await pool.query(
-    `UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, role, created_at`,
+    `UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, role, full_name, created_at`,
     [role, id]
   );
   return result.rows[0] ? toUser(result.rows[0]) : null;
 }
 
-function toUser(row: { id: string; email: string; role: Role; created_at: string }): User {
-  return { id: row.id, email: row.email, role: row.role, createdAt: row.created_at };
+// Coach/admin-editable: the participant's legal name, needed for dispute letters.
+export async function updateUserFullName(id: string, fullName: string): Promise<User | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    `UPDATE users SET full_name = $1 WHERE id = $2 RETURNING id, email, role, full_name, created_at`,
+    [fullName, id]
+  );
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
+
+function toUser(row: {
+  id: string;
+  email: string;
+  role: Role;
+  full_name: string | null;
+  created_at: string;
+}): User {
+  return { id: row.id, email: row.email, role: row.role, fullName: row.full_name, createdAt: row.created_at };
 }

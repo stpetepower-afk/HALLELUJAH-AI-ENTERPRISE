@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { authRouter } from "./auth/routes";
 import { caseRouter } from "./cases/routes";
+import { disputeRouter } from "./disputes/routes";
 import { complete } from "./config/llm-client";
 import { getPool } from "./db/pool";
 import { log } from "./utils/logger";
@@ -30,6 +31,7 @@ app.use(express.json());
 
 app.use("/auth", authRouter);
 app.use("/cases", caseRouter);
+app.use("/disputes", disputeRouter);
 app.use(express.static(publicDir));
 
 app.post("/llm/complete", async (req, res) => {
