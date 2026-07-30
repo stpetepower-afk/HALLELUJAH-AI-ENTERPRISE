@@ -1,6 +1,7 @@
 // src/server.ts
 import express from "express";
 import { authRouter } from "./auth/routes";
+import { caseRouter } from "./cases/routes";
 import { complete } from "./config/llm-client";
 import { getPool } from "./db/pool";
 import { log } from "./utils/logger";
@@ -23,6 +24,7 @@ const app = express();
 app.use(express.json());
 
 app.use("/auth", authRouter);
+app.use("/cases", caseRouter);
 
 app.post("/llm/complete", async (req, res) => {
   const { messages } = req.body ?? {};
