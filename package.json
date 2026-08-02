@@ -1,11 +1,11 @@
+"build": "tsc "build": "tsc && ./scripts/copy-public.sh""build": "tsc && ./scripts/copy-public.sh" node -e "require('fs').cpSync('public', 'dist/public', {recursive:true})"",
 {
   "name": "hallelujah-ai-enterprise",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc "build": "tsc && ./scripts/copy-public.sh""build": "tsc && ./scripts/copy-public.sh" node -e "require('fs').cpSync('public', 'dist/public', {recursive:true})"",
     "start": "node dist/server.js",
     "migrate": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seed-admin.ts",
