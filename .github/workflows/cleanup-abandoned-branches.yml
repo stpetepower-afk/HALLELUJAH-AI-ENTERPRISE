@@ -1,0 +1,110 @@
+name: Cleanup Abandoned Agent Branches
+
+on:
+  push:
+    branches:
+      - copilot/clean-up-abandoned-agent-branches
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete abandoned agent branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="stpetepower-afk/HALLELUJAH-AI-ENTERPRISE"
+          BRANCHES=(
+            "claude/adr-0003-merge-prep-bukfjr"
+            "claude/hallelujah-ai-enterprise-blueprint-zhvmsl"
+            "copilot/any-ideas"
+            "copilot/brainstorm-and-super-prompt"
+            "copilot/claudehallelujah-ai-enterprise-blueprint-zhvmsl"
+            "copilot/claudehallelujah-ai-enterprise-blueprint-zhvmsl-again"
+            "copilot/explain-repository-structure"
+            "copilot/explore-codebase-implementation-plan"
+            "copilot/i-approve-go"
+            "copilot/na"
+            "copilot/next-task"
+            "copilot/repository-explanation"
+            "copilot/review-session-history"
+            "copilot/review-session-history-again"
+            "copilot/whats-next"
+            "fable/init"
+          )
+
+          DELETED=()
+          FAILED=()
+
+          for BRANCH in "${BRANCHES[@]}"; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/git/refs/heads/${BRANCH}")
+            if [[ "$HTTP" == "204" || "$HTTP" == "422" ]]; then
+              echo "✅ Deleted: $BRANCH (HTTP $HTTP)"
+              DELETED+=("$BRANCH")
+            else
+              echo "❌ Failed:  $BRANCH (HTTP $HTTP)"
+              FAILED+=("$BRANCH")
+            fi
+          done
+
+          echo "DELETED_COUNT=${#DELETED[@]}" >> $GITHUB_ENV
+          echo "FAILED_COUNT=${#FAILED[@]}" >> $GITHUB_ENV
+
+          # Build summary lists for issue comment
+          DELETED_LIST=""
+          for b in "${DELETED[@]}"; do DELETED_LIST+="- \`$b\`"$'\n'; done
+          FAILED_LIST=""
+          for b in "${FAILED[@]}"; do FAILED_LIST+="- \`$b\`"$'\n'; done
+
+          echo "DELETED_LIST<<EOF" >> $GITHUB_ENV
+          echo "$DELETED_LIST" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          echo "FAILED_LIST<<EOF" >> $GITHUB_ENV
+          echo "$FAILED_LIST" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Close Issue #1 with summary comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="stpetepower-afk/HALLELUJAH-AI-ENTERPRISE"
+
+          COMMENT="## 🧹 Branch Cleanup Complete
+
+          This issue was originally opened because an agent session 14 days ago was unable to push branch \`claude/hallelujah-ai-enterprise-blueprint-zhvmsl\` due to a permissions error (HTTP 403).
+
+          All abandoned agent branches have now been cleaned up:
+
+          **Deleted (${{ env.DELETED_COUNT }}):**
+          ${{ env.DELETED_LIST }}
+
+          ${{ env.FAILED_COUNT > 0 && format('**Could not delete ({0}):**\n{1}', env.FAILED_COUNT, env.FAILED_LIST) || '' }}
+
+          The repo is now clear of stale agent branches. Closing this issue. ✅"
+
+          # Post comment
+          curl -s -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/$REPO/issues/1/comments" \
+            -d "{\"body\": $(echo "$COMMENT" | jq -Rs .)}"
+
+          # Close the issue
+          curl -s -X PATCH \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/$REPO/issues/1" \
+            -d '{"state": "closed", "state_reason": "completed"}'
+
+          echo "Issue #1 closed ✅"
