@@ -12,6 +12,26 @@
 node_modules/
 dist/
 
+# TypeScript build output leaking into the source tree.
+# This project is TypeScript-only: src/ holds .ts, and `tsc` is configured to
+# emit into dist/ (see tsconfig.json outDir). If a misconfigured build ever
+# emits next to the sources again, keep the compiled output out of git.
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+
+# Logs
+*.log
+npm-debug.log*
+.npm/
+
+# Python caches (stray scripts occasionally land in the repo root)
+__pycache__/
+*.pyc
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
 
 # Local Netlify folder
 .netlify
